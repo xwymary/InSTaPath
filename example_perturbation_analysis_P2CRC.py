@@ -66,11 +66,11 @@ optimizer = Adam(model.parameters(), lr=5e-3, weight_decay=1.2e-6) # 5e-3
 #     print(f"Epoch [{i+1}/{num_epochs}]: {train_loss:.4f}")
 # print('Done Training...')
 
-# torch.save(model.state_dict(), Path(outputs_dir, f"InSTaPath_K{K}_{num_epochs}epochs_model_weights.pth"))
+# torch.save(model.state_dict(), Path(outputs_dir, f"InSTaPath_{study_name}_K{K}_{num_epochs}epochs_model_weights.pth"))
 # recon = get_reconstruction_multimodal(model, full_loader, device)
-# save_pickle(recon, Path(outputs_dir, f"InSTaPath_K{K}_{num_epochs}epochs.pickle"))
+# save_pickle(recon, Path(outputs_dir, f"InSTaPath_{study_name}_K{K}_{num_epochs}epochs.pickle"))
 #%%
-model.load_state_dict(torch.load(Path(outputs_dir, f"InSTaPath_K{K}_{num_epochs}epochs_model_weights.pth"), map_location="cpu"))
+model.load_state_dict(torch.load(Path(outputs_dir, f"InSTaPath_{study_name}_K{K}_{num_epochs}epochs_model_weights.pth"), map_location="cpu"))
 model.to(device)
 model.eval()
 
