@@ -17,7 +17,7 @@ from pathlib import Path
 set_seed(2025) 
 study_name = "P2CRC"
 inputs_dir = Path("./inputs", study_name)
-outputs_dir = "./outputs/"
+outputs_dir = "./model_weights/"
 
 #%% load image data
 img_adata = sc.read_h5ad(Path(inputs_dir, "visium_P2CRC_img_hvi256.h5ad"))
@@ -141,9 +141,9 @@ print(suppressed.head(top_n_words))
 img_word_list = suppressed['img_word'].iloc[:top_n_words].tolist()
 
 #%% plot top DE image words on WSI scale
-from instapath.utils_plot import plot_DE_image_words_on_WSI_scale
+from instapath.utils_plot import plot_image_words_on_WSI_scale
 # plotting can take a while when WSI is large
-wsi_signal = plot_DE_image_words_on_WSI_scale(wsi_token_file_path=Path(inputs_dir,"P2CRC_codebook512&64_token_level.npz"),
+wsi_signal = plot_image_words_on_WSI_scale(wsi_token_file_path=Path(inputs_dir,"P2CRC_codebook512&64_token_level.npz"),
                                                 img_word_list=img_word_list,
                                                 H_patches = 119,
                                                 W_patches=183, 
