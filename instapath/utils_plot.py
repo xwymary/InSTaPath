@@ -14,7 +14,7 @@ import squidpy as sq
 from einops import rearrange
 from pathlib import Path
 from scipy.sparse import load_npz
-
+import matplotlib as mpl
 def plot_tsne_visualization(data, labels, title, special_color_map):
     labels = np.asarray(labels)
     unique_labels = np.unique(labels)
@@ -584,6 +584,72 @@ def plot_spatial_clusters(
     return fig, axes
 
 
+def plot_spatial_clusters_v2(
+    x, y,
+    annotations,
+    theta_cluster,
+    special_color_map,
+    ari=None, asw=None, nmi=None,
+    figsize=(10, 4),
+    point_size=1,
+    title="theta"
+):
+    # ---- process annotation
+    ann_cat = pd.Categorical(annotations)
+    ordered_cats = [c for c in special_color_map.keys() if c in ann_cat.categories]
+    ann_cat = ann_cat.reorder_categories(ordered_cats, ordered=True)
+
+    ann_codes = ann_cat.codes
+    ann_cmap = ListedColormap([special_color_map[c] for c in ann_cat.categories])
+
+    # ---- process theta cluster
+    theta_cat = pd.Categorical(theta_cluster)
+    theta_codes = theta_cat.codes
+    theta_cats = theta_cat.categories
+
+    base_cmap = mpl.colormaps["tab10"]
+    colors_theta = [base_cmap(i) for i in range(len(theta_cats))]
+    cmap_theta = ListedColormap(colors_theta)
+
+    # ---- plot
+    fig, axes = plt.subplots(1, 2, figsize=figsize)
+
+    # Left: Ground truth
+    axes[0].scatter(x, y, c=ann_codes, cmap=ann_cmap, s=point_size)
+    axes[0].set_aspect("equal")
+    axes[0].set_title("Ground truth")
+    axes[0].axis("off")
+
+    # legend (annotation)
+    handles0 = [
+        plt.Line2D([0], [0], marker='o', linestyle='', color=special_color_map[c], label=c, markersize=5)
+        for c in ann_cat.categories
+    ]
+    axes[0].legend(handles=handles0, bbox_to_anchor=(1.05, 1), loc="upper left", frameon=False)
+
+    # Right: theta cluster
+    if ari is not None and asw is not None and nmi is not None:
+        title_theta = f"{title}, ARI={ari:.3f}, ASW={asw:.3f}, NMI={nmi:.3f}"
+    else:
+        title_theta = f"{title} cluster"
+
+    axes[1].scatter(x, y, c=theta_codes, cmap=cmap_theta, s=point_size)
+    axes[1].set_aspect("equal")
+    axes[1].set_title(title_theta)
+    axes[1].axis("off")
+
+    # legend (theta)
+    handles1 = [
+        plt.Line2D([0], [0], marker='o', linestyle='', color=cmap_theta(i), label=str(cat), markersize=5)
+        for i, cat in enumerate(theta_cats)
+    ]
+    axes[1].legend(handles=handles1, bbox_to_anchor=(1.05, 1), loc="upper left", frameon=False)
+
+    plt.tight_layout()
+    plt.show()
+
+    return fig, axes
+
 #%%
 def plot_topic_word_occurrence_maps(
     encodings_idx, 
@@ -667,104 +733,7 @@ def plot_topic_word_occurrence_maps(
     plt.show()
 
     return fig, axes
-#%%
-def plot_topic_and_top_genes(
-    adata,
-    df_beta,
-    top_words_list,
-    recon,
-    X_data,
-    n_topics=10,
-    n_genes_per_topic=5,
-    figsize=(15, 30),
-    topic_cmap="coolwarm",
-    gene_cmap="viridis",
-    point_size=2,
-):
-    """
-    Plot for each topic:
-      - Column 0: theta spatial map
-      - Columns 1..n_genes_per_topic: spatial expression of top genes
 
-    Layout: n_topics rows × (1 + n_genes_per_topic) columns
-
-    Parameters
-    ----------
-    adata : AnnData
-        Contains spatial coordinates in obs and HVG info in var['highly_variable'].
-    df_beta : DataFrame
-        Topic–gene matrix (genes as index).
-    top_words_list : list
-        Concatenated list of top genes per topic (length = n_topics * n_genes_per_topic).
-    recon : dict
-        Must contain 'theta_list' of shape (n_spots, n_topics).
-    raw_genes : array (n_spots, n_hvgs)
-        Raw gene expression matrix corresponding to HVGs.
-    n_topics : int
-        Number of topics to plot (rows).
-    n_genes_per_topic : int
-        Number of top genes per topic.
-    figsize : tuple
-        Figure size.
-    topic_cmap : str
-        Colormap for theta.
-    gene_cmap : str
-        Colormap for gene expression.
-    point_size : int
-        Size of scatter points.
-    """
-
-    # Spatial coordinates
-    pos_x = adata.obs['pxl_row_in_fullres'].to_numpy()
-    pos_y = adata.obs['pxl_col_in_fullres'].to_numpy()
-
-    # Select top genes from df_beta
-    top_gene_data = df_beta.loc[top_words_list]
-    gene_list = top_gene_data.index.tolist()
-
-    # HVG names and mapping
-    hvg_names = adata.var_names[adata.var['highly_variable']].tolist()
-
-    # Create subplot grid
-    n_cols = 1 + n_genes_per_topic
-    fig, axes = plt.subplots(n_topics, n_cols, figsize=figsize)
-
-    for i in range(n_topics):
-        for j in range(n_cols):
-            ax = axes[i, j]
-
-            if j == 0:
-                # Topic theta plot
-                ax.scatter(
-                    pos_x,
-                    pos_y,
-                    s=point_size,
-                    c=recon['theta_list'][:, i],
-                    cmap=topic_cmap
-                )
-                ax.set_title(f"Topic {i+1}", fontsize=20)
-
-            else:
-                # Gene expression plot
-                gene = gene_list[i * n_genes_per_topic + (j - 1)]
-                idx = hvg_names.index(gene)
-
-                ax.scatter(
-                    pos_x,
-                    pos_y,
-                    s=point_size,
-                    c=X_data[:, idx],
-                    cmap=gene_cmap
-                )
-                ax.set_title(gene, fontsize=20)
-
-            ax.axis("off")
-            ax.set_aspect("equal")
-
-    plt.tight_layout()
-    plt.show()
-
-    return fig, axes
 
 #%%
 def plot_topic_and_top_words(
@@ -775,40 +744,40 @@ def plot_topic_and_top_words(
     theta,
     X_data,
     n_topics=10,
-    n_genes_per_topic=5,
+    top_n_per_topic=5,
     figsize=(15, 30),
     topic_cmap="coolwarm",
-    gene_cmap="viridis",
+    word_cmap="viridis",
     point_size=2,
 ):
     """
     Plot for each topic:
       - Column 0: theta spatial map
-      - Columns 1..n_genes_per_topic: spatial expression of top genes
+      - Columns 1..top_n_per_topic: spatial expression of top genes
 
-    Layout: n_topics rows × (1 + n_genes_per_topic) columns
+    Layout: n_topics rows × (1 + top_n_per_topic) columns
 
     Parameters
     ----------
     adata : AnnData
         Contains spatial coordinates in obs and HVG info in var['highly_variable'].
     df_beta : DataFrame
-        Topic–gene matrix (genes as index).
+        Topic-image words/ Topic–gene matrix.
     top_words_list : list
-        Concatenated list of top genes per topic (length = n_topics * n_genes_per_topic).
-    recon : dict
-        Must contain 'theta_list' of shape (n_spots, n_topics).
-    raw_genes : array (n_spots, n_hvgs)
+        Concatenated list of top image words/ genes per topic (length = n_topics * top_n_per_topic).
+    theta : array
+        'theta_list' of shape (n_spots, n_topics).
+    X_data : array (n_spots, n_hvgs)
         Raw gene expression matrix corresponding to HVGs.
     n_topics : int
         Number of topics to plot (rows).
-    n_genes_per_topic : int
+    top_n_per_topic : int
         Number of top genes per topic.
     figsize : tuple
         Figure size.
     topic_cmap : str
         Colormap for theta.
-    gene_cmap : str
+    word_cmap : str
         Colormap for gene expression.
     point_size : int
         Size of scatter points.
@@ -823,7 +792,7 @@ def plot_topic_and_top_words(
     gene_list = top_gene_data.index.tolist()
 
     # Create subplot grid
-    n_cols = 1 + n_genes_per_topic
+    n_cols = 1 + top_n_per_topic
     fig, axes = plt.subplots(n_topics, n_cols, figsize=figsize)
 
     for i in range(n_topics):
@@ -843,7 +812,7 @@ def plot_topic_and_top_words(
 
             else:
                 # Gene expression plot
-                gene = gene_list[i * n_genes_per_topic + (j - 1)]
+                gene = gene_list[i * top_n_per_topic + (j - 1)]
                 idx = hvg_names.index(gene)
 
                 ax.scatter(
@@ -851,7 +820,7 @@ def plot_topic_and_top_words(
                     pos_y,
                     s=point_size,
                     c=X_data[:, idx],
-                    cmap=gene_cmap
+                    cmap=word_cmap
                 )
                 ax.set_title(gene, fontsize=20)
 
@@ -977,7 +946,7 @@ def topic_target_pointbiserial_heatmap(
 
 
 #%%
-def plot_DE_image_words_on_WSI_scale(wsi_token_file_path, img_word_list, 
+def plot_image_words_on_WSI_scale(wsi_token_file_path, img_word_list, 
                      H_patches, W_patches, S=16,
                      cmap="viridis", title=None):
     """

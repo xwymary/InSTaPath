@@ -167,10 +167,10 @@ def clustering(
     if refine_cluster:
         if f"{used_obsm}_cluster_proba" in adata.obs:
             high_conf = adata.obs[f"{used_obsm}_cluster_proba"] > conf_proba # >0.9
-            X = adata.obs[["array_row", "array_col"]].values[high_conf]
+            X = adata.obs[["pxl_row_in_fullres", "pxl_col_in_fullres"]].values[high_conf]
             y = adata.obs[f"{used_obsm}_cluster"].values[high_conf]
         else:
-            X = adata.obs[["array_row", "array_col"]].values
+            X = adata.obs[["pxl_row_in_fullres", "pxl_col_in_fullres"]].values
             y = adata.obs[f"{used_obsm}_cluster"].values
 
         # make sure there are multiple clusters,
@@ -184,7 +184,7 @@ def clustering(
                       y)
 
             refined_clusters = neigh.predict(
-                adata.obs[["array_row", "array_col"]].values)
+                adata.obs[["pxl_row_in_fullres", "pxl_col_in_fullres"]].values)
             adata.obs[f"{used_obsm}_cluster"] = refined_clusters.astype(
                 str)
 
