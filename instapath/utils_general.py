@@ -42,6 +42,14 @@ def normalize_rows(X):
     X_normalized = X / row_sums              # Divide each row by its sum
     return X_normalized
 
+def create_directories(cfg):
+    """
+    Create all directories specified in the cfg dictionary.
+    """
+    for key, path in cfg.items():
+        os.makedirs(path, exist_ok=True)
+        print(f"Directory ready: {path}")
+        
 def download_hest(patterns, local_dir):
     snapshot_download(
         repo_id='MahmoodLab/hest',
@@ -56,6 +64,7 @@ def delete_file(path):
         print(f"Deleted: {path}")
     else:
         print(f"File not found: {path}")
+
 
 def save_pickle(var_name, file_name):
     with open(file_name, "wb") as file:

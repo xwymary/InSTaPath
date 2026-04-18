@@ -1,7 +1,7 @@
 import scanpy as sc
 import numpy as np
 import scipy.sparse as sp
-from utils_general import save_pickle, load_pickle
+from .utils_general import save_pickle, load_pickle
 from PIL import Image
 import matplotlib.pyplot as plt
 from einops import rearrange
@@ -10,7 +10,7 @@ from torchvision import transforms
 import torch
 from sklearn.cluster import MiniBatchKMeans
 from pathlib import Path
-from config import cfg
+from .config import cfg
 import timm
 from scipy.spatial import cKDTree
 from sklearn.metrics import pairwise_distances_argmin
@@ -38,7 +38,8 @@ def initialize_uni_model(uni_path, device):
     model.load_state_dict(torch.load(uni_path, map_location="cpu"), strict=True)
     model.to(device)
     return model
-
+    
+    
 def get_spot_distance(studyID):
     # ST (adata):
     adata = sc.read_h5ad(Path(cfg['dir_st'], f"{studyID}.h5ad"))
@@ -126,18 +127,146 @@ def plot_spots_on_image(studyID, k=20):
     plt.close() 
 
 
-def get_image_tiles(studyID, plot_patch_anchors=False):
+def read_wsi_region(
+    img_path,
+    anchor=None,
+    n_row=None,
+    n_col=None,
+    side=None,
+    flip_ud=False,
+    max_image_pixels=None,
+):
+    """
+    Read a whole image or a cropped region.
+
+    Parameters
+    ----------
+    img_path : str or Path
+        Path to TIFF/WSI image.
+    anchor : tuple[int, int] or None
+        Upper-left corner (x, y) of crop in full-resolution pixels.
+    n_row, n_col : int or None
+        Number of patch rows/cols for crop.
+    side : int or None
+        Patch side length in pixels.
+    flip_ud : bool
+        Whether to vertically flip the image.
+    max_image_pixels : int or None
+        If not None, assign to Image.MAX_IMAGE_PIXELS before reading.
+
+    Returns
+    -------
+    np.ndarray
+    """
+    if max_image_pixels is not None:
+        Image.MAX_IMAGE_PIXELS = max_image_pixels
+    else:
+        Image.MAX_IMAGE_PIXELS = None
+
+    img = np.asarray(Image.open(img_path))
+
+    if flip_ud:
+        img = np.flipud(img)
+
+    if anchor is None:
+        return img
+
+    if n_row is None or n_col is None or side is None:
+        raise ValueError("anchor requires n_row, n_col, and side.")
+
+    x0, y0 = anchor
+    return img[y0:y0 + n_row * side, x0:x0 + n_col * side, :]
+
+
+def show_image(
+    img,
+    invert_y=True,
+    axis_off=False,
+    figsize=None,
+    grid_step=None,
+    title=None,
+    k=None,
+):
+    """
+    Image display helper.
+
+    Parameters
+    ----------
+    img : np.ndarray
+        Image array (H, W, C)
+    invert_y : bool
+        Whether to invert y-axis
+    axis_off : bool
+        Hide axes if True
+    figsize : tuple or None
+        Matplotlib figure size
+    grid_step : int or None
+        Step size for grid overlay (in pixels, BEFORE downsampling)
+    title : str or None
+        Plot title
+    k : int or None
+        Downsampling factor (e.g. k=20 means show image at 1/20 resolution)
+    """
+
+    # ---- optional downsampling
+    if k is not None and k > 1:
+        img = img[::k, ::k]
+
+        # adjust grid spacing accordingly
+        if grid_step is not None:
+            grid_step = grid_step // k
+
+    # ---- figure setup
+    if figsize is not None:
+        plt.figure(figsize=figsize)
+    else:
+        plt.figure()
+
+    plt.imshow(img)
+
+    if invert_y:
+        plt.gca().invert_yaxis()
+
+    if axis_off:
+        plt.axis("off")
+
+    # ---- draw grid
+    if grid_step is not None and grid_step > 0:
+        h, w = img.shape[:2]
+        for y in range(grid_step, h, grid_step):
+            plt.axhline(y=y, color="k", lw=1, alpha=0.7)
+        for x in range(grid_step, w, grid_step):
+            plt.axvline(x=x, color="k", lw=1, alpha=0.7)
+
+    if title is not None:
+        plt.title(title)
+
+    plt.tight_layout()
+    plt.show()
+    
+    
+def get_image_tiles(studyID, anchor=None, n_row=None, n_col=None, side=None):
     Image.MAX_IMAGE_PIXELS = None  # e.g., allow up to 600M px
     spot_dist = load_pickle(Path(cfg['dir_spot_distance'], f'{studyID}.pickle'))
 
     # 1. read tif image, crop the region we need
     img = Image.open(Path(cfg['dir_wsis'], f"{studyID}.tif"))  
     img = np.asarray(img)
-    anchor = [0,0]
-    side = np.round(224*0.5*spot_dist/100)  # target: 224 px, 0.5 um per px, spot distance: 100 um
-    side = int(side)
-    n_row = img.shape[0]//side
-    n_col = img.shape[1]//side
+    # default anchor if not provided
+    if anchor is None:
+        anchor = (0, 0)
+    
+    # compute side only if not provided
+    if side is None:
+        side = int(np.round(224 * 0.5 * spot_dist / 100))
+    
+    # compute n_row only if not provided
+    if n_row is None:
+        n_row = (img.shape[0] - anchor[1]) // side
+    
+    # compute n_col only if not provided
+    if n_col is None:
+        n_col = (img.shape[1] - anchor[0]) // side
 
     tissue_region = img[anchor[1]:anchor[1]+n_row*side, anchor[0]:anchor[0]+n_col*side, :]
 
@@ -171,34 +300,15 @@ def get_image_tiles(studyID, plot_patch_anchors=False):
         center_list.append(coor+patch_centers)
         
     center_list = np.array(center_list)
-        
-    # draw anchor
-    if plot_patch_anchors: 
-        plt.figure()
-        img = Image.fromarray(img)
-        W, H = img.size
-        k=20
-        img = img.resize((W//k, H//k), resample=Image.Resampling.BILINEAR)
-        img = np.asarray(img)
-        plt.imshow(img)
-        plt.scatter(anchor_list[:,0]/k, anchor_list[:,1]/k, color="r", s=1)
-        plt.gca().invert_yaxis() 
-        plt.title(f"Downscaled x{k}")
-        plt.savefig(Path(cfg['dir_plot_patch_anchors'], f"{studyID}.png"), dpi=300, bbox_inches="tight")
-        plt.close() 
 
     # save
     save_pickle(tiles, Path(cfg['dir_visium_tiles'], f'{studyID}.pickle'))
 
-    patch_paras={}
-    patch_paras['anchor_list'] = anchor_list
-    patch_paras['center_list'] = center_list
-    patch_paras['side'] = side
-    patch_paras['n_row'] = n_row
-    patch_paras['n_col'] = n_col
-    save_pickle(patch_paras, Path(cfg['dir_uni_patch_paras'], f'{studyID}.pickle'))
+    img_paras = {'anchor': anchor, 'side': side, 'n_row': n_row, 'n_col': n_col}
+    save_pickle(img_paras, Path(cfg['dir_wsi_crop_paras'], f'{studyID}.pickle'))
+    save_pickle(center_list, Path(cfg['dir_patch_center_coords'], f'{studyID}.pickle'))
 
-    return tiles, patch_paras
+    return tiles, center_list
 
 
 def get_uni_features(studyID, model, batch_size=8):
