@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-
+'''
+HEST-1K: https://github.com/mahmoodlab/HEST/tree/main
+UNI weights: https://huggingface.co/MahmoodLab/UNI2-h/tree/main
+'''
 import os
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 import torch
@@ -24,7 +27,7 @@ download_hest(patterns, download_dir)
 
 #%%
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-uni_path = "Path to uni2-h model weights"
+uni_path = "Path to uni2-h model weights" # UNI2-h model weights: https://huggingface.co/MahmoodLab/UNI2-h/tree/main
 model = initialize_uni_model(uni_path, device)
 
 #%%

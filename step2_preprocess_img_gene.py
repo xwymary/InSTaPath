@@ -3,6 +3,7 @@
 add annotation to Visium data if there is any
 calculate spot level image word count
 save: 3000 highly variable genes, 256 highly variable image words, token level image word count.
+The data annotations used in this demo are from the following source: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE243275
 """
 import scanpy as sc
 import anndata as ad
@@ -25,6 +26,7 @@ adata = adata[adata.obs["in_tissue"] == 1].copy()
 pos_x, pos_y = adata.obs['pxl_col_in_fullres'].to_numpy(), adata.obs['pxl_row_in_fullres'].to_numpy()
 
 # add annotations
+# The data annotations used in this demo are from the following source: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE243275
 annotation_path = "./data/annotations/Cell_Barcode_Type_Matrices.xlsx" # This annotation file is from the VisiumBC paper, not from HEST dataset. 
 ann = pd.read_excel(annotation_path, sheet_name="Visium")
 adata.obs = adata.obs.join(
