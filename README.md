@@ -1,7 +1,7 @@
 # InSTaPath
 **To reproduce the results in the paper:**
 
-The input gene and image data are available [here]([https://drive.google.com/drive/folders/1TqTM1tvJXF78CwwEu-voEE999xWaN1tL?usp=sharing](https://drive.google.com/drive/folders/1rn68MP50wD7vWTxHMCLgCV5dIgJSUdEe?usp=drive_link)).
+The input gene and image data are available [here](https://drive.google.com/drive/folders/1rn68MP50wD7vWTxHMCLgCV5dIgJSUdEe?usp=sharing).
 
 ---
 **Demo using data from the HEST-1K dataset:**
