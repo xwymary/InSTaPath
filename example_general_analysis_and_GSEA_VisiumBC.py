@@ -26,7 +26,7 @@ inputs_dir = Path("./inputs", study_name)
 outputs_dir = "./model_weights/"
 
 #%% load image data
-img_adata = sc.read_h5ad(Path(inputs_dir, "visium_BC_img_hvi256.h5ad"))
+img_adata = sc.read_h5ad(Path(inputs_dir, "VisiumBC_img_hvi256.h5ad"))
 top_img_matrix = img_adata.X.toarray()
 top_img_names = img_adata.var.index.to_numpy()
 
@@ -189,13 +189,14 @@ fig, axes = plot_topic_and_top_words(
 )
     
 #%% plot top image words on WSI scale
-topic_idx = 6
+topic_idx = 8
 img_word_list = top_words_list_img[top_n_words*topic_idx:top_n_words*(topic_idx+1)]
+patch_paras = load_pickle("./processed/wsi_crop_paras/NCBI776.pickle")
 # plotting can take a while when WSI is large
 wsi_signal = plot_image_words_on_WSI_scale(wsi_token_file_path=Path(inputs_dir,"VisiumBC_codebook512&64_token_level.npz"),
                                             img_word_list=img_word_list,
-                                            H_patches =74,
-                                            W_patches=84, 
+                                            H_patches =patch_paras['n_row'],
+                                            W_patches=patch_paras['n_col'], 
                                             title=f"topic{topic_idx+1}: Top {top_n_words} image words"
                                             )
 
@@ -216,7 +217,7 @@ with torch.no_grad():
     rho_gene = model.rho_gene.detach().cpu().numpy()
     beta_gene_raw = model.alphas(model.rho_gene).detach().cpu().numpy().T
 
-topic_idx=7 # topic 8
+topic_idx=8 # topic 9
 gene_value_pairs = list(zip(top_gene_names, beta_gene_raw[topic_idx,:]))
 sorted_pairs = sorted(gene_value_pairs, key=lambda x: x[1], reverse=True)
 ranked_genes = {gene: value for gene, value in sorted_pairs}
